@@ -181,6 +181,41 @@
             transform: scale(0.92);
         }
 
+        /* 沉浸模式下的浮动缩放控制面板 */
+        #zoom-controls {
+            position: absolute;
+            bottom: 22px;
+            right: 22px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+            pointer-events: auto;
+        }
+        .zoom-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(20, 25, 32, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--accent);
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+            transition: all 0.2s ease;
+        }
+        .zoom-btn:active {
+            transform: scale(0.9);
+            background: var(--accent);
+            color: #000;
+        }
+
         /* 胜利结界浮层 */
         #victory-overlay {
             position: absolute;
@@ -213,8 +248,13 @@
     
     <div id="canvas-container"></div>
 
-    <!-- 沉浸模式退出按钮 -->
+    <!-- 沉浸模式退出按钮与浮动缩放控制面板 -->
     <div id="exit-lock-btn" title="退出锁定并恢复视角" onclick="game.toggleLockMode()">✕</div>
+    <div id="zoom-controls">
+        <button class="zoom-btn" onclick="game.zoomDelta(-0.6)" title="放大视口">＋</button>
+        <button class="zoom-btn" onclick="game.zoomDelta(0.6)" title="缩小视口">－</button>
+        <button class="zoom-btn" onclick="game.resetZoom()" title="满屏自适应复位" style="font-size: 15px;">⟲</button>
+    </div>
 
     <div id="victory-overlay">
         <div class="win-box">
@@ -477,12 +517,14 @@
 
             getFlatCameraDistance() {
                 const aspect = window.innerWidth / window.innerHeight;
-                const requiredWidth = 9.6;
-                const requiredHeight = 4.2;
+                // 精确贴合 1×4 菱形条带的紧凑包围盒 (宽8.35, 高2.85)
+                const reqW = 8.35;
+                const reqH = 2.85;
                 const vFovRad = (this.camera.fov * Math.PI) / 180;
-                const distH = (requiredHeight / 2) / Math.tan(vFovRad / 2);
-                const distW = (requiredWidth / 2) / (Math.tan(vFovRad / 2) * aspect);
-                return Math.max(distH, distW, 7.5);
+                const distH = (reqH / 2) / Math.tan(vFovRad / 2);
+                const distW = (reqW / 2) / (Math.tan(vFovRad / 2) * aspect);
+                // 彻底去除原先 7.5 的硬编码下限，让横屏手机瞬间满屏铺满，仅留 5% 舒适微边距
+                return Math.max(distH, distW) * 1.05;
             }
 
             initPuzzleData() {
@@ -852,6 +894,43 @@
                 this.raycaster = new THREE.Raycaster();
                 this.mouse = new THREE.Vector2();
                 let isDragging = false, startPos = { x: 0, y: 0 };
+                let initialPinchDist = 0;
+                let initialCamZ = 0;
+
+                // 移动端双指捏合无级缩放手势支持
+                window.addEventListener('touchstart', e => {
+                    if (e.touches.length === 2) {
+                        initialPinchDist = Math.hypot(
+                            e.touches[0].clientX - e.touches[1].clientX,
+                            e.touches[0].clientY - e.touches[1].clientY
+                        );
+                        initialCamZ = this.camera.position.z;
+                    }
+                }, { passive: false });
+
+                window.addEventListener('touchmove', e => {
+                    if (e.touches.length === 2 && initialPinchDist > 0) {
+                        const currentDist = Math.hypot(
+                            e.touches[0].clientX - e.touches[1].clientX,
+                            e.touches[0].clientY - e.touches[1].clientY
+                        );
+                        const factor = initialPinchDist / currentDist;
+                        const targetZ = THREE.MathUtils.clamp(initialCamZ * factor, 2.2, 14.0);
+                        this.camera.position.z = targetZ;
+                        if (this.isFlat) this.camPos2D.z = targetZ;
+                        isDragging = true;
+                    }
+                }, { passive: false });
+
+                // PC 端滚轮缩放支持
+                window.addEventListener('wheel', e => {
+                    if (this.isLocked) {
+                        const delta = e.deltaY * 0.005;
+                        const targetZ = THREE.MathUtils.clamp(this.camera.position.z + delta, 2.2, 14.0);
+                        this.camera.position.z = targetZ;
+                        this.camPos2D.z = targetZ;
+                    }
+                }, { passive: true });
 
                 window.addEventListener('pointerdown', e => {
                     MechanicalAudio.init();
@@ -876,6 +955,18 @@
                         this.trySwap(intersects[0].object);
                     }
                 });
+            }
+
+            zoomDelta(val) {
+                const targetZ = THREE.MathUtils.clamp(this.camera.position.z + val, 2.2, 14.0);
+                this.camera.position.z = targetZ;
+                this.camPos2D.z = targetZ;
+            }
+
+            resetZoom() {
+                const fitZ = this.getFlatCameraDistance();
+                this.camera.position.z = fitZ;
+                this.camPos2D.z = fitZ;
             }
 
             trySwap(hitButton) {
@@ -947,6 +1038,7 @@
                     uiPanel.classList.add('immersed');
                     controls.classList.add('immersed');
                     exitBtn.style.display = 'flex';
+                    document.getElementById('zoom-controls').style.display = 'flex';
 
                     // 禁用旋转与平移交互
                     this.controls.enabled = false;
@@ -969,6 +1061,7 @@
                     uiPanel.classList.remove('immersed');
                     controls.classList.remove('immersed');
                     exitBtn.style.display = 'none';
+                    document.getElementById('zoom-controls').style.display = 'none';
 
                     this.controls.enabled = true;
                     this.controls.reset();
