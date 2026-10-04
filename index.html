@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Catchase · 花蓉锁 (36键立体/平铺客制化机械版)</title>
+    <style>
+        :root {
+            --accent: #e0d0a0;
+            --accent-glow: rgba(224, 208, 160, 0.4);
+        }
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* 顶部毛玻璃面板 */
+        #ui-panel {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 520px;
+            text-align: center;
+            color: #ffffff;
+            pointer-events: none;
+            z-index: 10;
+            padding: 12px 20px;
+            background: rgba(18, 22, 28, 0.5);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        #ui-panel.immersed {
+            opacity: 0;
+            transform: translate(-50%, -40px);
+            pointer-events: none;
+        }
+        h1 {
+            margin: 0 0 4px 0;
+            font-size: 20px;
+            letter-spacing: 2px;
+            color: var(--accent);
+            text-shadow: 0 0 12px rgba(224, 208, 160, 0.5);
+        }
+        p {
+            margin: 0;
+            font-size: 12px;
+            color: #8c9ba8;
+            line-height: 1.4;
+        }
+        .mode-badge {
+            display: inline-block;
+            margin-top: 4px;
+            font-size: 11px;
+            padding: 2px 10px;
+            border-radius: 20px;
+            background: rgba(224, 208, 160, 0.12);
+            color: var(--accent);
+            border: 1px solid rgba(224, 208, 160, 0.25);
+            letter-spacing: 1px;
+        }
+
+        /* 底部操作底栏 */
+        .controls {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            pointer-events: auto;
+            z-index: 20;
+            padding: 10px 18px;
+            background: rgba(18, 22, 28, 0.5);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .controls.immersed {
+            opacity: 0;
+            transform: translate(-50%, 40px);
+            pointer-events: none;
+        }
+        button {
+            background: rgba(25, 30, 38, 0.85);
+            color: var(--accent);
+            border: 1px solid rgba(224, 208, 160, 0.35);
+            padding: 9px 16px;
+            font-size: 13px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 600;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            outline: none;
+        }
+        button:hover {
+            background: var(--accent);
+            color: #0c0f14;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        button.btn-primary {
+            background: rgba(224, 208, 160, 0.2);
+            border-color: var(--accent);
+        }
+        #lock-btn {
+            background: rgba(0, 180, 216, 0.2);
+            color: #00b4d8;
+            border-color: #00b4d8;
+            display: none;
+        }
+        #lock-btn:hover {
+            background: #00b4d8;
+            color: #000;
+        }
+
+        /* 沉浸模式下的右上角极简退出按键 */
+        #exit-lock-btn {
+            position: absolute;
+            top: 18px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(20, 25, 32, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            font-size: 20px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+            transition: all 0.25s ease;
+            pointer-events: auto;
+        }
+        #exit-lock-btn:hover {
+            background: rgba(255, 75, 75, 0.85);
+            color: #fff;
+            transform: scale(1.08);
+        }
+        #exit-lock-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* 胜利结界浮层 */
+        #victory-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none; opacity: 0; transition: opacity 0.5s ease;
+            z-index: 50; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
+        }
+        #victory-overlay.show { opacity: 1; pointer-events: auto; }
+        .win-box {
+            padding: 36px 54px; display: flex; flex-direction: column; align-items: center;
+            background: rgba(20, 25, 30, 0.6); border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 18px; box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+        }
+        .win-text {
+            font-size: 34px; font-weight: bold; color: #ffd700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.7); margin-bottom: 22px; letter-spacing: 4px;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TrackballControls.js"></script>
+</head>
+<body>
+
+    <div id="ui-panel">
+        <h1>Catchase · 花蓉锁 (36键)</h1>
+        <p>四色四面 · 客制化磨砂透光机械阵盘</p>
+        <span id="mode-badge" class="mode-badge">当前形态：三维正四面体</span>
+    </div>
+    
+    <div id="canvas-container"></div>
+
+    <!-- 沉浸模式退出按钮 -->
+    <div id="exit-lock-btn" title="退出锁定并恢复视角" onclick="game.toggleLockMode()">✕</div>
+
+    <div id="victory-overlay">
+        <div class="win-box">
+            <div class="win-text">阵法已破 · 浑然天成</div>
+            <button onclick="game.shuffle()">再战一陈</button>
+        </div>
+    </div>
+
+    <!-- 操作底栏 -->
+    <div class="controls" id="main-controls">
+        <button id="toggle-view-btn" class="btn-primary" onclick="game.toggleMorph()">
+            <span id="toggle-icon">📐</span>
+            <span id="toggle-text">平铺展开</span>
+        </button>
+        <button id="lock-btn" onclick="game.toggleLockMode()">
+            <span>🔒</span>
+            <span>锁定横屏</span>
+        </button>
+        <button onclick="game.shuffle()" title="瞬间打乱">
+            <span>🌀</span> 打乱
+        </button>
+        <button onclick="game.reset()" title="复位到初始状态">
+            <span>🔄</span> 复位
+        </button>
+    </div>
+
+    <script>
+        // 机械客制化轴体声音物理合成引擎 (Web Audio API)
+        const MechanicalAudio = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    const AC = window.AudioContext || window.webkitAudioContext;
+                    if (AC) this.ctx = new AC();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            playSwitch(type = 'thock') {
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const t = this.ctx.currentTime;
+
+                    // 1. 轴芯触底 Thock 沉闷低频共鸣
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    const baseFreq = type === 'thock' ? 140 : 260;
+                    osc.frequency.setValueAtTime(baseFreq, t);
+                    osc.frequency.exponentialRampToValueAtTime(32, t + 0.055);
+                    gain.gain.setValueAtTime(type === 'thock' ? 0.45 : 0.25, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(t);
+                    osc.stop(t + 0.06);
+
+                    // 2. 机械弹片微脆声瞬态
+                    const bufSize = Math.floor(this.ctx.sampleRate * 0.02);
+                    const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+                    const out = buf.getChannelData(0);
+                    for (let i = 0; i < bufSize; i++) {
+                        out[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.25));
+                    }
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buf;
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.value = type === 'thock' ? 1600 : 3500;
+                    filter.Q.value = 2.5;
+                    const noiseGain = this.ctx.createGain();
+                    noiseGain.gain.setValueAtTime(0.28, t);
+                    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+                    noise.connect(filter);
+                    filter.connect(noiseGain);
+                    noiseGain.connect(this.ctx.destination);
+                    noise.start(t);
+                } catch (e) {}
+            }
+        };
+
+        // 熏黑半透磨砂透光键帽纹理工厂
+        const TextureFactory = {
+            cache: {},
+            createKeycap(colorHex, isBlank = false) {
+                const k = colorHex + (isBlank ? '_blank' : '_lit');
+                if (this.cache[k]) return this.cache[k];
+                
+                const size = 512;
+                const canvas = document.createElement('canvas');
+                canvas.width = size; canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                // 黑夜磨砂质感基底
+                ctx.fillStyle = '#0a0d11';
+                ctx.fillRect(0, 0, size, size);
+
+                // 磨砂颗粒
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+                for (let i = 0; i < 3500; i++) {
+                    ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2);
+                }
+
+                if (!isBlank) {
+                    const col = new THREE.Color(colorHex);
+                    const m = size / 2;
+                    const rgbStr = `${Math.round(col.r * 255)}, ${Math.round(col.g * 255)}, ${Math.round(col.b * 255)}`;
+                    
+                    // 轴下高亮 RGB 雾化透光
+                    const glowGrad = ctx.createRadialGradient(m, m, 15, m, m, size * 0.46);
+                    glowGrad.addColorStop(0, `rgba(${rgbStr}, 0.95)`);
+                    glowGrad.addColorStop(0.35, `rgba(${rgbStr}, 0.55)`);
+                    glowGrad.addColorStop(0.75, `rgba(${rgbStr}, 0.12)`);
+                    glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                    ctx.fillStyle = glowGrad;
+                    ctx.fillRect(0, 0, size, size);
+
+                    // 键帽中心机械透光符印
+                    ctx.save();
+                    ctx.translate(m, m + 6);
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 4;
+                    ctx.shadowColor = `rgba(${rgbStr}, 1)`;
+                    ctx.shadowBlur = 16;
+                    
+                    ctx.beginPath();
+                    for (let a = 0; a < 3; a++) {
+                        const ang = -Math.PI / 2 + (a * 2 * Math.PI) / 3;
+                        const px = Math.cos(ang) * 48;
+                        const py = Math.sin(ang) * 48;
+                        if (a === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // 键帽边缘漫射暗角
+                const rimGrad = ctx.createRadialGradient(size / 2, size / 2, size * 0.32, size / 2, size / 2, size * 0.5);
+                rimGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                rimGrad.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
+                ctx.fillStyle = rimGrad;
+                ctx.fillRect(0, 0, size, size);
+
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.anisotropy = 8;
+                this.cache[k] = tex;
+                return tex;
+            }
+        };
+
+        class DualModeTetrahedronPuzzle {
+            constructor() {
+                this.initScene();
+                this.initPuzzleData();
+                this.buildGeometry();
+                this.setupInteractions();
+                this.animate();
+            }
+
+            initScene() {
+                const container = document.getElementById('canvas-container');
+                this.scene = new THREE.Scene();
+
+                this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+                this.camPos3D = new THREE.Vector3(0, 2, 7);
+                this.camPos2D = new THREE.Vector3(0, -0.2, this.getFlatCameraDistance());
+                this.camera.position.copy(this.camPos3D);
+
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.setClearColor(0x000000, 1);
+                this.renderer.outputEncoding = THREE.sRGBEncoding;
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.toneMappingExposure = 1.25;
+                container.appendChild(this.renderer.domElement);
+
+                this.controls = new THREE.TrackballControls(this.camera, this.renderer.domElement);
+                this.controls.rotateSpeed = 2.8;
+                this.controls.zoomSpeed = 1.2;
+                this.controls.panSpeed = 0.3;
+                this.controls.noPan = true;
+                this.controls.dynamicDampingFactor = 0.12;
+
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+                this.scene.add(ambientLight);
+
+                const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.85);
+                dirLight1.position.set(6, 12, 8);
+                this.scene.add(dirLight1);
+
+                const dirLight2 = new THREE.DirectionalLight(0x7090b0, 0.4);
+                dirLight2.position.set(-6, -6, -6);
+                this.scene.add(dirLight2);
+
+                // 流光反射纹理
+                const envCanvas = document.createElement('canvas');
+                envCanvas.width = 256; envCanvas.height = 256;
+                const envCtx = envCanvas.getContext('2d');
+                const envGrad = envCtx.createLinearGradient(0, 0, 256, 256);
+                envGrad.addColorStop(0, '#0d1b2a'); envGrad.addColorStop(0.5, '#415a77'); envGrad.addColorStop(1, '#e0e1dd');
+                envCtx.fillStyle = envGrad; envCtx.fillRect(0, 0, 256, 256);
+                const envTexture = new THREE.CanvasTexture(envCanvas);
+                envTexture.mapping = THREE.EquirectangularReflectionMapping;
+
+                const makeCapMat = (colHex, emissiveInt = 1.15, isBlank = false) => {
+                    const tex = TextureFactory.createKeycap(colHex, isBlank);
+                    return new THREE.MeshStandardMaterial({
+                        map: tex,
+                        emissiveMap: tex,
+                        emissive: isBlank ? 0x05070a : colHex,
+                        emissiveIntensity: emissiveInt,
+                        color: 0x11141a,
+                        roughness: 0.36,
+                        metalness: 0.22,
+                        envMap: envTexture,
+                        envMapIntensity: 0.85
+                    });
+                };
+
+                this.materials = {
+                    base: new THREE.MeshStandardMaterial({ 
+                        color: 0x080a0e, roughness: 0.65, metalness: 0.8,
+                        envMap: envTexture, envMapIntensity: 1.5,
+                        side: THREE.DoubleSide, depthWrite: true,
+                        polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2
+                    }),
+                    red: makeCapMat(0xff2a4b, 1.3),
+                    yellow: makeCapMat(0xffb703, 1.2),
+                    blue: makeCapMat(0x00b4d8, 1.3),
+                    green: makeCapMat(0x06d6a0, 1.3),
+                    white: makeCapMat(0x1a1e24, 0.08, true),
+                    aluminum: new THREE.MeshStandardMaterial({ color: 0x12161d, roughness: 0.35, metalness: 0.88, envMap: envTexture, envMapIntensity: 2.2 })
+                };
+
+                // 状态机
+                this.morphT = 0.0;
+                this.targetMorph = 0.0;
+                this.isFlat = false;
+                this.isLocked = false;
+                this.isShuffling = false;
+
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.camPos2D.z = this.getFlatCameraDistance();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                    this.controls.handleResize();
+                });
+            }
+
+            getFlatCameraDistance() {
+                const aspect = window.innerWidth / window.innerHeight;
+                const requiredWidth = 9.6;
+                const requiredHeight = 4.2;
+                const vFovRad = (this.camera.fov * Math.PI) / 180;
+                const distH = (requiredHeight / 2) / Math.tan(vFovRad / 2);
+                const distW = (requiredWidth / 2) / (Math.tan(vFovRad / 2) * aspect);
+                return Math.max(distH, distW, 7.5);
+            }
+
+            initPuzzleData() {
+                this.initialState = new Array(36);
+                for (let i = 0; i < 36; i++) {
+                    this.initialState[i] = Math.floor(i / 9);
+                }
+                this.initialState[2] = 4; // 第0面中心倒三角设为空格
+                this.state = [...this.initialState];
+
+                this.adj3D = [];
+                this.adj2D = [];
+            }
+
+            buildGeometry() {
+                const r = 2.0;
+                const v3D = [
+                    new THREE.Vector3(1, 1, 1).normalize().multiplyScalar(r),
+                    new THREE.Vector3(1, -1, -1).normalize().multiplyScalar(r),
+                    new THREE.Vector3(-1, 1, -1).normalize().multiplyScalar(r),
+                    new THREE.Vector3(-1, -1, 1).normalize().multiplyScalar(r)
+                ];
+
+                const faceIndices = [
+                    [0, 2, 1], // 面0 (红)
+                    [0, 1, 3], // 面1 (黄)
+                    [0, 3, 2], // 面2 (蓝)
+                    [1, 2, 3]  // 面3 (绿)
+                ];
+
+                const L = v3D[0].distanceTo(v3D[1]);
+                const H = L * Math.sqrt(3) / 2;
+
+                // 2D 菱形平铺精确坐标 (1x4 展开图)
+                const to2D = (x, y) => new THREE.Vector3(x - 1.25 * L, y - H / 2, 0);
+                const P0 = to2D(0, 0);
+                const P1 = to2D(L, 0);
+                const P2 = to2D(2 * L, 0);
+                const Q0 = to2D(0.5 * L, H);
+                const Q1 = to2D(1.5 * L, H);
+                const Q2 = to2D(2.5 * L, H);
+
+                const faceCorners2D = [
+                    [Q0, P0, P1],
+                    [Q0, P1, Q1],
+                    [Q2, Q1, P2],
+                    [P1, P2, Q1]
+                ];
+
+                this.buttons = [];
+                this.diamonds = [];
+                this.triangleVerts3D = [];
+                this.triangleVerts2D = [];
+
+                const shrinkFactor = 0.90;
+                const extrudeHeight = 0.08;
+
+                const baseGeometry = new THREE.BufferGeometry();
+                const baseVerts3D = [];
+                const baseVerts2D = [];
+                const baseUvs = [];
+
+                faceIndices.forEach((fIdx, faceId) => {
+                    const A3 = v3D[fIdx[0]], B3 = v3D[fIdx[1]], C3 = v3D[fIdx[2]];
+                    const center3 = new THREE.Vector3().addVectors(A3, B3).add(C3).divideScalar(3);
+                    let N3 = new THREE.Vector3().crossVectors(new THREE.Vector3().subVectors(B3, A3), new THREE.Vector3().subVectors(C3, A3)).normalize();
+                    if (N3.dot(center3) < 0) N3.multiplyScalar(-1);
+
+                    const [A2, B2, C2] = faceCorners2D[faceId];
+                    const center2 = new THREE.Vector3().addVectors(A2, B2).add(C2).divideScalar(3);
+                    const N2 = new THREE.Vector3(0, 0, 1);
+
+                    const fBase = 0.15;
+                    const c3Corners = [A3, B3, C3];
+                    const c2Corners = [A2, B2, C2];
+                    const loop3 = [];
+                    const loop2 = [];
+
+                    for (let i = 0; i < 3; i++) {
+                        let curr3 = c3Corners[i], prev3 = c3Corners[(i + 2) % 3], next3 = c3Corners[(i + 1) % 3];
+                        let curr2 = c2Corners[i], prev2 = c2Corners[(i + 2) % 3], next2 = c2Corners[(i + 1) % 3];
+                        let pA3 = curr3.clone().lerp(prev3, fBase), pB3 = curr3.clone().lerp(next3, fBase);
+                        let pA2 = curr2.clone().lerp(prev2, fBase), pB2 = curr2.clone().lerp(next2, fBase);
+
+                        for (let j = 0; j <= 4; j++) {
+                            let t = j / 4;
+                            loop3.push(new THREE.Vector3().addScaledVector(pA3, (1 - t) * (1 - t)).addScaledVector(curr3, 2 * (1 - t) * t).addScaledVector(pB3, t * t));
+                            loop2.push(new THREE.Vector3().addScaledVector(pA2, (1 - t) * (1 - t)).addScaledVector(curr2, 2 * (1 - t) * t).addScaledVector(pB2, t * t));
+                        }
+                    }
+
+                    for (let i = 0; i < loop3.length; i++) {
+                        let p1_3 = loop3[i], p2_3 = loop3[(i + 1) % loop3.length];
+                        let p1_2 = loop2[i], p2_2 = loop2[(i + 1) % loop2.length];
+                        baseVerts3D.push(center3.x, center3.y, center3.z, p1_3.x, p1_3.y, p1_3.z, p2_3.x, p2_3.y, p2_3.z);
+                        baseVerts2D.push(center2.x, center2.y, center2.z, p1_2.x, p1_2.y, p1_2.z, p2_2.x, p2_2.y, p2_2.z);
+                        baseUvs.push(0.5, 0.5, 0.5, 0.5, 0.5, 0.5);
+                    }
+
+                    // 中央珠宝
+                    const jewelryGroup = new THREE.Group();
+                    const gemBottomGeo = new THREE.CylinderGeometry(0.08, 0.01, 0.05, 6);
+                    const gemTopGeo = new THREE.CylinderGeometry(0.045, 0.08, 0.025, 6);
+                    gemTopGeo.translate(0, 0.0375, 0);
+
+                    const gemMat = new THREE.MeshPhysicalMaterial({
+                        color: 0x000000, emissive: 0x080015, emissiveIntensity: 0.4,
+                        roughness: 0.0, metalness: 0.9, flatShading: true,
+                        clearcoat: 1.0, envMap: this.materials.base.envMap, envMapIntensity: 2.5
+                    });
+                    const gemBottom = new THREE.Mesh(gemBottomGeo, gemMat);
+                    const gemTop = new THREE.Mesh(gemTopGeo, gemMat);
+
+                    const edgeMat = new THREE.LineBasicMaterial({ color: 0x11161d, transparent: true, opacity: 0.4 });
+                    jewelryGroup.add(gemBottom, gemTop, new THREE.LineSegments(new THREE.EdgesGeometry(gemBottomGeo, 15), edgeMat), new THREE.LineSegments(new THREE.EdgesGeometry(gemTopGeo, 15), edgeMat));
+
+                    const quat3D = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), N3);
+                    const quat2D = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), N2);
+
+                    jewelryGroup.position.copy(center3).addScaledVector(N3, 0.02);
+                    jewelryGroup.quaternion.copy(quat3D);
+
+                    jewelryGroup.userData = {
+                        pos3D: center3.clone().addScaledVector(N3, 0.02),
+                        pos2D: center2.clone().addScaledVector(N2, 0.02),
+                        quat3D: quat3D,
+                        quat2D: quat2D,
+                        normal3D: N3.clone(),
+                        phase: faceId * 1.57,
+                        colorSeed: faceId * 0.3,
+                        gemMeshes: [gemBottom, gemTop]
+                    };
+                    this.scene.add(jewelryGroup);
+                    this.diamonds.push(jewelryGroup);
+
+                    const getP = (corners, r, c) => {
+                        let wA = 3 - r, wB = r - c, wC = c;
+                        return new THREE.Vector3(
+                            (wA * corners[0].x + wB * corners[1].x + wC * corners[2].x) / 3,
+                            (wA * corners[0].y + wB * corners[1].y + wC * corners[2].y) / 3,
+                            (wA * corners[0].z + wB * corners[1].z + wC * corners[2].z) / 3
+                        );
+                    };
+
+                    let localIdx = 0;
+                    for (let r = 0; r <= 2; r++) {
+                        for (let c = 0; c <= r; c++) {
+                            const uvU_A = new THREE.Vector2(0.5, 1.0);
+                            const uvU_B = new THREE.Vector2(0.067, 0.25);
+                            const uvU_C = new THREE.Vector2(0.933, 0.25);
+
+                            const uvI_A = new THREE.Vector2(0.067, 0.75);
+                            const uvI_B = new THREE.Vector2(0.5, 0.0);
+                            const uvI_C = new THREE.Vector2(0.933, 0.75);
+
+                            let p1_3 = getP([A3, B3, C3], r, c);
+                            let p2_3 = getP([A3, B3, C3], r + 1, c);
+                            let p3_3 = getP([A3, B3, C3], r + 1, c + 1);
+
+                            let p1_2 = getP([A2, B2, C2], r, c);
+                            let p2_2 = getP([A2, B2, C2], r + 1, c);
+                            let p3_2 = getP([A2, B2, C2], r + 1, c + 1);
+
+                            this.createButton([p1_3, p2_3, p3_3], [p1_2, p2_2, p3_2], [uvU_A, uvU_B, uvU_C], N3, N2, faceId, localIdx++, shrinkFactor, extrudeHeight);
+
+                            if (c < r) {
+                                let p4_3 = getP([A3, B3, C3], r, c);
+                                let p5_3 = getP([A3, B3, C3], r + 1, c + 1);
+                                let p6_3 = getP([A3, B3, C3], r, c + 1);
+
+                                let p4_2 = getP([A2, B2, C2], r, c);
+                                let p5_2 = getP([A2, B2, C2], r + 1, c + 1);
+                                let p6_2 = getP([A2, B2, C2], r, c + 1);
+
+                                this.createButton([p4_3, p5_3, p6_3], [p4_2, p5_2, p6_2], [uvI_A, uvI_B, uvI_C], N3, N2, faceId, localIdx++, shrinkFactor, extrudeHeight);
+                            }
+                        }
+                    }
+                });
+
+                baseGeometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(baseVerts3D), 3));
+                baseGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(baseUvs, 2));
+                baseGeometry.computeVertexNormals();
+
+                this.baseMesh = new THREE.Mesh(baseGeometry, this.materials.base);
+                this.baseMesh.userData = {
+                    verts3D: new Float32Array(baseVerts3D),
+                    verts2D: new Float32Array(baseVerts2D)
+                };
+                this.scene.add(this.baseMesh);
+
+                this.generateAdjacencyGraph();
+                this.updateVisuals();
+            }
+
+            createButton(pts3D, pts2D, uvs, N3, N2, faceId, localIdx, shrinkFactor, extrudeHeight) {
+                let [vA3, vB3, vC3] = pts3D;
+                let [vA2, vB2, vC2] = pts2D;
+                let [uvA, uvB, uvC] = uvs;
+
+                let cross3 = new THREE.Vector3().crossVectors(new THREE.Vector3().subVectors(vB3, vA3), new THREE.Vector3().subVectors(vC3, vA3));
+                if (cross3.dot(N3) < 0) {
+                    let tmp = vB3; vB3 = vC3; vC3 = tmp;
+                }
+                let cross2 = new THREE.Vector3().crossVectors(new THREE.Vector3().subVectors(vB2, vA2), new THREE.Vector3().subVectors(vC2, vA2));
+                if (cross2.dot(N2) < 0) {
+                    let tmp2 = vB2; vB2 = vC2; vC2 = tmp2;
+                }
+
+                this.triangleVerts3D.push([vA3, vB3, vC3]);
+                this.triangleVerts2D.push([vA2, vB2, vC2]);
+
+                const shrink = (pts, f) => {
+                    let c = new THREE.Vector3().addVectors(pts[0], pts[1]).add(pts[2]).divideScalar(3);
+                    return [
+                        new THREE.Vector3().subVectors(pts[0], c).multiplyScalar(f).add(c),
+                        new THREE.Vector3().subVectors(pts[1], c).multiplyScalar(f).add(c),
+                        new THREE.Vector3().subVectors(pts[2], c).multiplyScalar(f).add(c)
+                    ];
+                };
+
+                let [s1_3, s2_3, s3_3] = shrink([vA3, vB3, vC3], shrinkFactor);
+                let [s1_2, s2_2, s3_2] = shrink([vA2, vB2, vC2], shrinkFactor);
+
+                const buildLoops = (corners, uvsC) => {
+                    let f = 0.22, loops = [], loopUvs = [];
+                    for (let i = 0; i < 3; i++) {
+                        let curr = corners[i], prev = corners[(i + 2) % 3], next = corners[(i + 1) % 3];
+                        let cuv = uvsC[i], puv = uvsC[(i + 2) % 3], nuv = uvsC[(i + 1) % 3];
+                        let pA = curr.clone().lerp(prev, f), uvA_pt = cuv.clone().lerp(puv, f);
+                        let pB = curr.clone().lerp(next, f), uvB_pt = cuv.clone().lerp(nuv, f);
+                        for (let j = 0; j <= 4; j++) {
+                            let t = j / 4;
+                            loops.push(new THREE.Vector3().addScaledVector(pA, (1 - t) * (1 - t)).addScaledVector(curr, 2 * (1 - t) * t).addScaledVector(pB, t * t));
+                            loopUvs.push(new THREE.Vector2().addScaledVector(uvA_pt, (1 - t) * (1 - t)).addScaledVector(cuv, 2 * (1 - t) * t).addScaledVector(uvB_pt, t * t));
+                        }
+                    }
+                    return { loops, loopUvs };
+                };
+
+                let loopObj3 = buildLoops([s1_3, s2_3, s3_3], [uvA, uvB, uvC]);
+                let loopObj2 = buildLoops([s1_2, s2_2, s3_2], [uvA, uvB, uvC]);
+
+                const cSub3 = new THREE.Vector3().addVectors(vA3, vB3).add(vC3).divideScalar(3);
+                const cSub2 = new THREE.Vector3().addVectors(vA2, vB2).add(vC2).divideScalar(3);
+                const cSub_uv = new THREE.Vector2().addVectors(uvA, uvB).add(uvC).divideScalar(3);
+
+                const extrudeHeight2D = 0.36; // 平面模式突出三棱立体机械键帽高度
+                const cSub_top3 = cSub3.clone().addScaledVector(N3, extrudeHeight);
+                const cSub_top2 = cSub2.clone().addScaledVector(N2, extrudeHeight2D);
+
+                let verts3 = [], verts2 = [], uvsArr = [];
+                let frameVerts3 = [], frameVerts2 = [];
+                const ringWidthRatio = 0.15;
+
+                for (let i = 0; i < loopObj3.loops.length; i++) {
+                    let nextI = (i + 1) % loopObj3.loops.length;
+                    let p1_3 = loopObj3.loops[i], p2_3 = loopObj3.loops[nextI];
+                    let p1_2 = loopObj2.loops[i], p2_2 = loopObj2.loops[nextI];
+                    let u1 = loopObj3.loopUvs[i], u2 = loopObj3.loopUvs[nextI];
+
+                    let p1_top3 = p1_3.clone().addScaledVector(N3, extrudeHeight);
+                    let p2_top3 = p2_3.clone().addScaledVector(N3, extrudeHeight);
+                    let p1_top2 = p1_2.clone().addScaledVector(N2, extrudeHeight2D).lerp(cSub_top2, 0.14);
+                    let p2_top2 = p2_2.clone().addScaledVector(N2, extrudeHeight2D).lerp(cSub_top2, 0.14);
+
+                    let p1_in3 = p1_top3.clone().lerp(cSub_top3, ringWidthRatio);
+                    let p2_in3 = p2_top3.clone().lerp(cSub_top3, ringWidthRatio);
+                    let p1_in2 = p1_top2.clone().lerp(cSub_top2, ringWidthRatio);
+                    let p2_in2 = p2_top2.clone().lerp(cSub_top2, ringWidthRatio);
+
+                    let u1_in = u1.clone().lerp(cSub_uv, ringWidthRatio);
+                    let u2_in = u2.clone().lerp(cSub_uv, ringWidthRatio);
+
+                    // 顶面嵌花
+                    verts3.push(cSub_top3.x, cSub_top3.y, cSub_top3.z, p1_in3.x, p1_in3.y, p1_in3.z, p2_in3.x, p2_in3.y, p2_in3.z);
+                    verts2.push(cSub_top2.x, cSub_top2.y, cSub_top2.z, p1_in2.x, p1_in2.y, p1_in2.z, p2_in2.x, p2_in2.y, p2_in2.z);
+                    uvsArr.push(cSub_uv.x, cSub_uv.y, u1_in.x, u1_in.y, u2_in.x, u2_in.y);
+
+                    // 铝框包边
+                    frameVerts3.push(p1_top3.x, p1_top3.y, p1_top3.z, p2_top3.x, p2_top3.y, p2_top3.z, p2_in3.x, p2_in3.y, p2_in3.z);
+                    frameVerts3.push(p1_top3.x, p1_top3.y, p1_top3.z, p2_in3.x, p2_in3.y, p2_in3.z, p1_in3.x, p1_in3.y, p1_in3.z);
+                    frameVerts3.push(p1_3.x, p1_3.y, p1_3.z, p2_3.x, p2_3.y, p2_3.z, p2_top3.x, p2_top3.y, p2_top3.z);
+                    frameVerts3.push(p1_3.x, p1_3.y, p1_3.z, p2_top3.x, p2_top3.y, p2_top3.z, p1_top3.x, p1_top3.y, p1_top3.z);
+
+                    frameVerts2.push(p1_top2.x, p1_top2.y, p1_top2.z, p2_top2.x, p2_top2.y, p2_top2.z, p2_in2.x, p2_in2.y, p2_in2.z);
+                    frameVerts2.push(p1_top2.x, p1_top2.y, p1_top2.z, p2_in2.x, p2_in2.y, p2_in2.z, p1_in2.x, p1_in2.y, p1_in2.z);
+                    frameVerts2.push(p1_2.x, p1_2.y, p1_2.z, p2_2.x, p2_2.y, p2_2.z, p2_top2.x, p2_top2.y, p2_top2.z);
+                    frameVerts2.push(p1_2.x, p1_2.y, p1_2.z, p2_top2.x, p2_top2.y, p2_top2.z, p1_top2.x, p1_top2.y, p1_top2.z);
+                }
+
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(verts3), 3));
+                geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvsArr, 2));
+                geometry.computeVertexNormals();
+
+                const frameGeo = new THREE.BufferGeometry();
+                frameGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(frameVerts3), 3));
+                frameGeo.computeVertexNormals();
+
+                const buttonMesh = new THREE.Mesh(geometry, this.materials.white);
+                const frameMesh = new THREE.Mesh(frameGeo, this.materials.aluminum);
+                buttonMesh.add(frameMesh);
+
+                buttonMesh.userData = {
+                    index: faceId * 9 + localIdx,
+                    normal3D: N3.clone(),
+                    normal2D: N2.clone(),
+                    normal: N3.clone(),
+                    verts3D: new Float32Array(verts3),
+                    verts2D: new Float32Array(verts2),
+                    frameVerts3D: new Float32Array(frameVerts3),
+                    frameVerts2D: new Float32Array(frameVerts2),
+                    frameMesh: frameMesh,
+                    isPressed: false,
+                    animProgress: 0,
+                    onPressPeak: null
+                };
+
+                this.scene.add(buttonMesh);
+                this.buttons.push(buttonMesh);
+            }
+
+            generateAdjacencyGraph() {
+                const isSame = (p1, p2) => p1.distanceTo(p2) < 0.005;
+
+                for (let i = 0; i < 36; i++) this.adj3D[i] = [];
+                for (let i = 0; i < 36; i++) {
+                    for (let j = i + 1; j < 36; j++) {
+                        let shared = 0;
+                        let triA = this.triangleVerts3D[i], triB = this.triangleVerts3D[j];
+                        for (let a = 0; a < 3; a++) {
+                            for (let b = 0; b < 3; b++) {
+                                if (isSame(triA[a], triB[b])) { shared++; break; }
+                            }
+                        }
+                        if (shared === 2) {
+                            this.adj3D[i].push(j);
+                            this.adj3D[j].push(i);
+                        }
+                    }
+                }
+
+                for (let i = 0; i < 36; i++) this.adj2D[i] = [];
+                for (let i = 0; i < 36; i++) {
+                    for (let j = i + 1; j < 36; j++) {
+                        let shared = 0;
+                        let triA = this.triangleVerts2D[i], triB = this.triangleVerts2D[j];
+                        for (let a = 0; a < 3; a++) {
+                            for (let b = 0; b < 3; b++) {
+                                if (isSame(triA[a], triB[b])) { shared++; break; }
+                            }
+                        }
+                        if (shared === 2) {
+                            this.adj2D[i].push(j);
+                            this.adj2D[j].push(i);
+                        }
+                    }
+                }
+            }
+
+            get currentAdj() {
+                return this.isFlat ? this.adj2D : this.adj3D;
+            }
+
+            setupInteractions() {
+                this.raycaster = new THREE.Raycaster();
+                this.mouse = new THREE.Vector2();
+                let isDragging = false, startPos = { x: 0, y: 0 };
+
+                window.addEventListener('pointerdown', e => {
+                    MechanicalAudio.init();
+                    isDragging = false;
+                    startPos = { x: e.clientX, y: e.clientY };
+                });
+
+                window.addEventListener('pointermove', e => {
+                    if (Math.hypot(e.clientX - startPos.x, e.clientY - startPos.y) > 6) isDragging = true;
+                });
+
+                window.addEventListener('pointerup', e => {
+                    if (this.isShuffling || e.target.closest('button') || e.target.id === 'exit-lock-btn') return;
+                    if (!this.isLocked && isDragging) return;
+
+                    this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                    this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+                    this.raycaster.setFromCamera(this.mouse, this.camera);
+
+                    const intersects = this.raycaster.intersectObjects(this.buttons);
+                    if (intersects.length > 0) {
+                        this.trySwap(intersects[0].object);
+                    }
+                });
+            }
+
+            trySwap(hitButton) {
+                if (hitButton.userData.animProgress === 0 && !hitButton.userData.isPressed) {
+                    const clickedIndex = hitButton.userData.index;
+                    const emptyIndex = this.state.indexOf(4);
+
+                    if (this.currentAdj[emptyIndex].includes(clickedIndex)) {
+                        MechanicalAudio.playSwitch('thock');
+                        hitButton.userData.isPressed = true;
+                        hitButton.userData.onPressPeak = () => {
+                            this.state[emptyIndex] = this.state[clickedIndex];
+                            this.state[clickedIndex] = 4;
+                            this.updateVisuals();
+                            this.checkWin();
+                        };
+                    } else {
+                        MechanicalAudio.playSwitch('click');
+                        hitButton.userData.isPressed = true;
+                        hitButton.userData.onPressPeak = null;
+                    }
+                }
+            }
+
+            updateVisuals() {
+                for (let i = 0; i < 36; i++) {
+                    let colorId = this.state[i];
+                    let mat = this.materials.white;
+                    if (colorId === 0) mat = this.materials.red;
+                    else if (colorId === 1) mat = this.materials.yellow;
+                    else if (colorId === 2) mat = this.materials.blue;
+                    else if (colorId === 3) mat = this.materials.green;
+                    this.buttons[i].material = mat;
+                }
+            }
+
+            toggleMorph() {
+                if (this.isLocked) return;
+                this.targetMorph = this.targetMorph === 0.0 ? 1.0 : 0.0;
+                const btnText = document.getElementById('toggle-text');
+                const btnIcon = document.getElementById('toggle-icon');
+                const badge = document.getElementById('mode-badge');
+                const lockBtn = document.getElementById('lock-btn');
+
+                if (this.targetMorph === 1.0) {
+                    this.camPos2D.z = this.getFlatCameraDistance();
+                    this.controls.reset();
+                    btnText.innerText = "立体折叠";
+                    btnIcon.innerText = "🧊";
+                    badge.innerText = "当前形态：平面画卷 (1×4 展开图)";
+                    lockBtn.style.display = "flex";
+                } else {
+                    this.controls.reset();
+                    btnText.innerText = "平铺展开";
+                    btnIcon.innerText = "📐";
+                    badge.innerText = "当前形态：三维正四面体";
+                    lockBtn.style.display = "none";
+                }
+            }
+
+            toggleLockMode() {
+                this.isLocked = !this.isLocked;
+                const uiPanel = document.getElementById('ui-panel');
+                const controls = document.getElementById('main-controls');
+                const exitBtn = document.getElementById('exit-lock-btn');
+
+                if (this.isLocked) {
+                    // 进入沉浸模式
+                    uiPanel.classList.add('immersed');
+                    controls.classList.add('immersed');
+                    exitBtn.style.display = 'flex';
+
+                    // 禁用旋转与平移交互
+                    this.controls.enabled = false;
+
+                    // 矫正至沉浸 2.5D 手游微俯仰固定视角
+                    this.camera.position.set(0, -0.2, this.getFlatCameraDistance());
+                    this.camera.lookAt(0, 0, 0);
+
+                    // 尝试申请全屏与横屏锁定
+                    try {
+                        if (document.documentElement.requestFullscreen) {
+                            document.documentElement.requestFullscreen().catch(() => {});
+                        }
+                        if (screen.orientation && screen.orientation.lock) {
+                            screen.orientation.lock('landscape').catch(() => {});
+                        }
+                    } catch (e) {}
+                } else {
+                    // 退出沉浸模式
+                    uiPanel.classList.remove('immersed');
+                    controls.classList.remove('immersed');
+                    exitBtn.style.display = 'none';
+
+                    this.controls.enabled = true;
+                    this.controls.reset();
+
+                    try {
+                        if (document.exitFullscreen) {
+                            document.exitFullscreen().catch(() => {});
+                        }
+                    } catch (e) {}
+                }
+            }
+
+            shuffle() {
+                if (this.isShuffling) return;
+                document.getElementById('victory-overlay').classList.remove('show');
+
+                const totalSteps = 600;
+                let lastEmpty = -1;
+                const activeAdj = this.currentAdj;
+
+                for (let i = 0; i < totalSteps; i++) {
+                    let emptyIdx = this.state.indexOf(4);
+                    let neighbors = activeAdj[emptyIdx].filter(n => n !== lastEmpty);
+                    if (neighbors.length === 0) neighbors = activeAdj[emptyIdx];
+                    let randomNext = neighbors[Math.floor(Math.random() * neighbors.length)];
+
+                    this.state[emptyIdx] = this.state[randomNext];
+                    this.state[randomNext] = 4;
+                    lastEmpty = emptyIdx;
+                }
+
+                this.updateVisuals();
+                this.buttons.forEach(btn => btn.userData.animProgress = 0.4);
+                MechanicalAudio.playSwitch('thock');
+            }
+
+            reset() {
+                this.state = [...this.initialState];
+                this.updateVisuals();
+                document.getElementById('victory-overlay').classList.remove('show');
+                if (this.targetMorph === 0.0) {
+                    this.camera.position.copy(this.camPos3D);
+                    this.controls.reset();
+                } else {
+                    this.camPos2D.z = this.getFlatCameraDistance();
+                    this.camera.position.copy(this.camPos2D);
+                    this.controls.reset();
+                }
+            }
+
+            checkWin() {
+                let isWin = true;
+                for (let i = 0; i < 36; i++) {
+                    if (this.state[i] !== this.initialState[i]) {
+                        isWin = false;
+                        break;
+                    }
+                }
+                if (isWin) {
+                    document.getElementById('victory-overlay').classList.add('show');
+                }
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+
+                if (this.controls.enabled) {
+                    this.controls.update();
+                }
+
+                // 1. 双形态平滑插值过渡
+                if (Math.abs(this.morphT - this.targetMorph) > 0.0002) {
+                    this.morphT += (this.targetMorph - this.morphT) * 0.08;
+                    if (Math.abs(this.morphT - this.targetMorph) <= 0.0002) {
+                        this.morphT = this.targetMorph;
+                    }
+                    this.isFlat = this.morphT > 0.5;
+
+                    const p = (this.morphT === 0) ? 0 : ((this.morphT === 1) ? 1 : (this.morphT < 0.5 ? 4 * this.morphT * this.morphT * this.morphT : 1 - Math.pow(-2 * this.morphT + 2, 3) / 2));
+                    const arc = (p === 0 || p === 1) ? 0 : Math.sin(p * Math.PI) * 0.42;
+
+                    if (!this.isLocked) {
+                        this.camPos2D.z = this.getFlatCameraDistance();
+                        const targetCam = new THREE.Vector3().lerpVectors(this.camPos3D, this.camPos2D, p);
+                        this.camera.position.lerp(targetCam, 0.1);
+                    }
+
+                    // 底座形变
+                    const basePos = this.baseMesh.geometry.attributes.position;
+                    const b3 = this.baseMesh.userData.verts3D;
+                    const b2 = this.baseMesh.userData.verts2D;
+                    for (let k = 0; k < basePos.count; k++) {
+                        basePos.setXYZ(
+                            k,
+                            (1 - p) * b3[k * 3] + p * b2[k * 3],
+                            (1 - p) * b3[k * 3 + 1] + p * b2[k * 3 + 1],
+                            (1 - p) * b3[k * 3 + 2] + p * b2[k * 3 + 2] + (1 - p) * arc * 0.3
+                        );
+                    }
+                    basePos.needsUpdate = true;
+                    this.baseMesh.geometry.computeVertexNormals();
+
+                    // 按键变形插值
+                    this.buttons.forEach(btn => {
+                        const pos = btn.geometry.attributes.position;
+                        const v3 = btn.userData.verts3D, v2 = btn.userData.verts2D;
+                        const n3 = btn.userData.normal3D;
+
+                        for (let k = 0; k < pos.count; k++) {
+                            pos.setXYZ(
+                                k,
+                                (1 - p) * v3[k * 3] + p * v2[k * 3] + n3.x * arc,
+                                (1 - p) * v3[k * 3 + 1] + p * v2[k * 3 + 1] + n3.y * arc,
+                                (1 - p) * v3[k * 3 + 2] + p * v2[k * 3 + 2] + n3.z * arc
+                            );
+                        }
+                        pos.needsUpdate = true;
+                        btn.geometry.computeVertexNormals();
+                        btn.geometry.computeBoundingSphere();
+
+                        const fPos = btn.userData.frameMesh.geometry.attributes.position;
+                        const fv3 = btn.userData.frameVerts3D, fv2 = btn.userData.frameVerts2D;
+                        for (let k = 0; k < fPos.count; k++) {
+                            fPos.setXYZ(
+                                k,
+                                (1 - p) * fv3[k * 3] + p * fv2[k * 3] + n3.x * arc,
+                                (1 - p) * fv3[k * 3 + 1] + p * fv2[k * 3 + 1] + n3.y * arc,
+                                (1 - p) * fv3[k * 3 + 2] + p * fv2[k * 3 + 2] + n3.z * arc
+                            );
+                        }
+                        fPos.needsUpdate = true;
+                        btn.userData.frameMesh.geometry.computeVertexNormals();
+
+                        btn.userData.normal.lerpVectors(btn.userData.normal3D, btn.userData.normal2D, p).normalize();
+                    });
+
+                    this.diamonds.forEach(gem => {
+                        gem.position.lerpVectors(gem.userData.pos3D, gem.userData.pos2D, p).addScaledVector(gem.userData.normal3D, arc);
+                        gem.quaternion.slerpQuaternions(gem.userData.quat3D, gem.userData.quat2D, p);
+                    });
+                }
+
+                // 2. 机械按键物理键程下陷 (平面模式享有更深的轴体下压行程)
+                const maxPressDepth = THREE.MathUtils.lerp(0.08, 0.22, this.morphT);
+                this.buttons.forEach(btn => {
+                    if (btn.userData.isPressed) {
+                        btn.userData.animProgress += 0.26;
+                        if (btn.userData.animProgress >= 1) {
+                            btn.userData.animProgress = 1;
+                            btn.userData.isPressed = false;
+                            if (typeof btn.userData.onPressPeak === 'function') {
+                                btn.userData.onPressPeak();
+                                btn.userData.onPressPeak = null;
+                            }
+                        }
+                    } else if (btn.userData.animProgress > 0) {
+                        btn.userData.animProgress -= 0.12;
+                        if (btn.userData.animProgress < 0) btn.userData.animProgress = 0;
+                    }
+
+                    const offset = -maxPressDepth * btn.userData.animProgress;
+                    btn.position.set(0, 0, 0).addScaledVector(btn.userData.normal, offset);
+                });
+
+                // 3. 珠宝深邃呼吸微光
+                if (this.diamonds) {
+                    const time = Date.now() * 0.0008;
+                    this.diamonds.forEach(group => {
+                        const pulse = Math.sin(time * 2.5 + group.userData.phase) * 0.5 + 0.5;
+                        const hue = (time * 0.06 + group.userData.colorSeed) % 1;
+                        group.userData.gemMeshes.forEach(mesh => {
+                            mesh.material.color.setHSL(hue, 1.0, 0.04);
+                            mesh.material.emissive.setHSL(hue, 1.0, 0.15);
+                            mesh.material.emissiveIntensity = 0.3 + pulse * 0.4;
+                        });
+                    });
+                }
+
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        const game = new DualModeTetrahedronPuzzle();
+    </script>
+</body>
+</html>
