@@ -843,6 +843,8 @@
                     animProgress: 0,
                     onPressPeak: null
                 };
+                // 边框金属框架与按键本体共享逻辑数据，彻底消除触摸死角
+                frameMesh.userData = buttonMesh.userData;
 
                 this.scene.add(buttonMesh);
                 this.buttons.push(buttonMesh);
@@ -932,10 +934,33 @@
                     }
                 }, { passive: true });
 
+                const getTargetBtn = (clientX, clientY) => {
+                    this.mouse.x = (clientX / window.innerWidth) * 2 - 1;
+                    this.mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+                    this.raycaster.setFromCamera(this.mouse, this.camera);
+                    // 启用递归穿透检测，确保外框和内芯任一被点击都能瞬间捕获
+                    const intersects = this.raycaster.intersectObjects(this.buttons, true);
+                    if (intersects.length > 0) {
+                        let hit = intersects[0].object;
+                        while (hit && hit.userData.index === undefined && hit.parent) {
+                            hit = hit.parent;
+                        }
+                        return (hit && hit.userData.index !== undefined) ? hit : null;
+                    }
+                    return null;
+                };
+
                 window.addEventListener('pointerdown', e => {
                     MechanicalAudio.init();
                     isDragging = false;
                     startPos = { x: e.clientX, y: e.clientY };
+
+                    // 沉浸锁定模式：零延迟 pointerdown 瞬发（实现音游级即时触控手感）
+                    if (this.isLocked && e.isPrimary) {
+                        if (e.target.closest('button') || e.target.id === 'exit-lock-btn' || e.target.closest('#zoom-controls')) return;
+                        const btn = getTargetBtn(e.clientX, e.clientY);
+                        if (btn) this.trySwap(btn);
+                    }
                 });
 
                 window.addEventListener('pointermove', e => {
@@ -943,17 +968,12 @@
                 });
 
                 window.addEventListener('pointerup', e => {
-                    if (this.isShuffling || e.target.closest('button') || e.target.id === 'exit-lock-btn') return;
-                    if (!this.isLocked && isDragging) return;
+                    if (this.isShuffling || e.target.closest('button') || e.target.id === 'exit-lock-btn' || e.target.closest('#zoom-controls')) return;
+                    if (this.isLocked) return; // 锁定模式已在 pointerdown 瞬发完毕
+                    if (isDragging) return;
 
-                    this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-                    this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-                    this.raycaster.setFromCamera(this.mouse, this.camera);
-
-                    const intersects = this.raycaster.intersectObjects(this.buttons);
-                    if (intersects.length > 0) {
-                        this.trySwap(intersects[0].object);
-                    }
+                    const btn = getTargetBtn(e.clientX, e.clientY);
+                    if (btn) this.trySwap(btn);
                 });
             }
 
@@ -970,24 +990,23 @@
             }
 
             trySwap(hitButton) {
-                if (hitButton.userData.animProgress === 0 && !hitButton.userData.isPressed) {
-                    const clickedIndex = hitButton.userData.index;
-                    const emptyIndex = this.state.indexOf(4);
+                const clickedIndex = hitButton.userData.index;
+                const emptyIndex = this.state.indexOf(4);
 
-                    if (this.currentAdj[emptyIndex].includes(clickedIndex)) {
-                        MechanicalAudio.playSwitch('thock');
-                        hitButton.userData.isPressed = true;
-                        hitButton.userData.onPressPeak = () => {
-                            this.state[emptyIndex] = this.state[clickedIndex];
-                            this.state[clickedIndex] = 4;
-                            this.updateVisuals();
-                            this.checkWin();
-                        };
-                    } else {
-                        MechanicalAudio.playSwitch('click');
-                        hitButton.userData.isPressed = true;
-                        hitButton.userData.onPressPeak = null;
-                    }
+                if (this.currentAdj[emptyIndex].includes(clickedIndex)) {
+                    MechanicalAudio.playSwitch('thock');
+                    // 零延迟瞬间执行逻辑移动与色块渲染，不等待下压动画（音游级即触即达）
+                    this.state[emptyIndex] = this.state[clickedIndex];
+                    this.state[clickedIndex] = 4;
+                    this.updateVisuals();
+                    this.checkWin();
+
+                    hitButton.userData.isPressed = true;
+                    hitButton.userData.animProgress = 0.45;
+                } else {
+                    MechanicalAudio.playSwitch('click');
+                    hitButton.userData.isPressed = true;
+                    hitButton.userData.animProgress = 0.25;
                 }
             }
 
@@ -1204,21 +1223,17 @@
                     });
                 }
 
-                // 2. 机械按键物理键程下陷 (平面模式享有更深的轴体下压行程)
+                // 2. 机械按键物理键程下陷 (迅猛下沉与疾速回弹，呈现极佳机械打击感)
                 const maxPressDepth = THREE.MathUtils.lerp(0.08, 0.22, this.morphT);
                 this.buttons.forEach(btn => {
                     if (btn.userData.isPressed) {
-                        btn.userData.animProgress += 0.26;
+                        btn.userData.animProgress += 0.38;
                         if (btn.userData.animProgress >= 1) {
                             btn.userData.animProgress = 1;
                             btn.userData.isPressed = false;
-                            if (typeof btn.userData.onPressPeak === 'function') {
-                                btn.userData.onPressPeak();
-                                btn.userData.onPressPeak = null;
-                            }
                         }
                     } else if (btn.userData.animProgress > 0) {
-                        btn.userData.animProgress -= 0.12;
+                        btn.userData.animProgress -= 0.18;
                         if (btn.userData.animProgress < 0) btn.userData.animProgress = 0;
                     }
 
