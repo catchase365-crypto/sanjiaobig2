@@ -496,7 +496,7 @@
                     blue: makeCapMat(0x00b4d8, 1.3),
                     green: makeCapMat(0x06d6a0, 1.3),
                     white: makeCapMat(0x1a1e24, 0.08, true),
-                    aluminum: new THREE.MeshStandardMaterial({ color: 0x12161d, roughness: 0.35, metalness: 0.88, envMap: envTexture, envMapIntensity: 2.2, side: THREE.DoubleSide })
+                    aluminum: new THREE.MeshStandardMaterial({ color: 0x12161d, roughness: 0.35, metalness: 0.88, envMap: envTexture, envMapIntensity: 2.2 })
                 };
 
                 // 状态机
@@ -899,8 +899,9 @@
                 let initialPinchDist = 0;
                 let initialCamZ = 0;
 
-                // 移动端双指捏合无级缩放手势支持
+                // 移动端双指捏合无级缩放手势支持（在平铺全屏锁定模式下禁用捏合缩放）
                 window.addEventListener('touchstart', e => {
+                    if (this.isFlat && this.isLocked) return;
                     if (e.touches.length === 2) {
                         initialPinchDist = Math.hypot(
                             e.touches[0].clientX - e.touches[1].clientX,
@@ -911,6 +912,7 @@
                 }, { passive: false });
 
                 window.addEventListener('touchmove', e => {
+                    if (this.isFlat && this.isLocked) return;
                     if (e.touches.length === 2 && initialPinchDist > 0) {
                         const currentDist = Math.hypot(
                             e.touches[0].clientX - e.touches[1].clientX,
@@ -935,18 +937,17 @@
                 }, { passive: true });
 
                 const getTargetBtn = (clientX, clientY) => {
-                    const rect = this.renderer.domElement.getBoundingClientRect();
-                    this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-                    this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+                    this.mouse.x = (clientX / window.innerWidth) * 2 - 1;
+                    this.mouse.y = -(clientY / window.innerHeight) * 2 + 1;
                     this.raycaster.setFromCamera(this.mouse, this.camera);
-                    // 启用递归穿透检测，外框 frameMesh 与内芯任一被点击都能准确捕获
+                    // 启用递归穿透检测，确保外框和内芯任一被点击都能瞬间捕获
                     const intersects = this.raycaster.intersectObjects(this.buttons, true);
                     if (intersects.length > 0) {
                         let hit = intersects[0].object;
-                        while (hit && !this.buttons.includes(hit) && hit.parent) {
+                        while (hit && hit.userData.index === undefined && hit.parent) {
                             hit = hit.parent;
                         }
-                        return (hit && this.buttons.includes(hit)) ? hit : null;
+                        return (hit && hit.userData.index !== undefined) ? hit : null;
                     }
                     return null;
                 };
@@ -956,23 +957,21 @@
                     isDragging = false;
                     startPos = { x: e.clientX, y: e.clientY };
 
-                    if (e.target.closest('button') || e.target.id === 'exit-lock-btn' || e.target.closest('#zoom-controls')) return;
-
-                    // 平铺或锁定模式下：直接在 pointerdown 零延迟瞬发，彻底消除移动端等待抬手与双击防抖延迟
-                    if (this.isFlat || this.isLocked) {
-                        if (e.cancelable) e.preventDefault();
+                    // 沉浸锁定模式：零延迟 pointerdown 瞬发（实现音游级即时触控手感）
+                    if (this.isLocked && e.isPrimary) {
+                        if (e.target.closest('button') || e.target.id === 'exit-lock-btn' || e.target.closest('#zoom-controls')) return;
                         const btn = getTargetBtn(e.clientX, e.clientY);
                         if (btn) this.trySwap(btn);
                     }
-                }, { passive: false });
+                });
 
                 window.addEventListener('pointermove', e => {
-                    if (Math.hypot(e.clientX - startPos.x, e.clientY - startPos.y) > 16) isDragging = true;
+                    if (Math.hypot(e.clientX - startPos.x, e.clientY - startPos.y) > 6) isDragging = true;
                 });
 
                 window.addEventListener('pointerup', e => {
                     if (this.isShuffling || e.target.closest('button') || e.target.id === 'exit-lock-btn' || e.target.closest('#zoom-controls')) return;
-                    if (this.isFlat || this.isLocked) return; // 平铺/锁定模式已在 pointerdown 瞬发完毕
+                    if (this.isLocked) return; // 锁定模式已在 pointerdown 瞬发完毕
                     if (isDragging) return;
 
                     const btn = getTargetBtn(e.clientX, e.clientY);
@@ -1203,7 +1202,6 @@
                         pos.needsUpdate = true;
                         btn.geometry.computeVertexNormals();
                         btn.geometry.computeBoundingSphere();
-                        btn.geometry.computeBoundingBox();
 
                         const fPos = btn.userData.frameMesh.geometry.attributes.position;
                         const fv3 = btn.userData.frameVerts3D, fv2 = btn.userData.frameVerts2D;
@@ -1217,8 +1215,6 @@
                         }
                         fPos.needsUpdate = true;
                         btn.userData.frameMesh.geometry.computeVertexNormals();
-                        btn.userData.frameMesh.geometry.computeBoundingSphere();
-                        btn.userData.frameMesh.geometry.computeBoundingBox();
 
                         btn.userData.normal.lerpVectors(btn.userData.normal3D, btn.userData.normal2D, p).normalize();
                     });
