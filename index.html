@@ -181,6 +181,49 @@
             transform: scale(0.92);
         }
 
+        /* 沉浸模式下的左上角控制按钮组 */
+        #immersive-left-controls {
+            position: absolute;
+            top: 18px;
+            left: 20px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            z-index: 100;
+            pointer-events: auto;
+        }
+        .lock-tool-btn {
+            padding: 8px 14px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(20, 25, 32, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--accent);
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+            transition: all 0.2s ease;
+        }
+        .lock-tool-btn:hover {
+            background: var(--accent);
+            color: #0c0f14;
+            transform: translateY(-2px);
+        }
+        .lock-tool-btn:active {
+            transform: scale(0.95);
+        }
+        .lock-tool-btn.active {
+            background: rgba(255, 183, 3, 0.3);
+            border-color: #ffb703;
+            color: #ffd166;
+        }
+
         /* 沉浸模式下的浮动缩放控制面板 */
         #zoom-controls {
             position: absolute;
@@ -250,6 +293,18 @@
 
     <!-- 沉浸模式退出按钮与浮动缩放控制面板 -->
     <div id="exit-lock-btn" title="退出锁定并恢复视角" onclick="game.toggleLockMode()">✕</div>
+    <div id="immersive-left-controls">
+        <button id="diff-btn" class="lock-tool-btn" onclick="game.toggleHardMode()" title="切换数字华容道难度">
+            <span id="diff-icon">🔥</span>
+            <span id="diff-text">加大难度</span>
+        </button>
+        <button class="lock-tool-btn" onclick="game.shuffle()" title="随机打乱">
+            <span>🌀</span> 打乱
+        </button>
+        <button class="lock-tool-btn" onclick="game.reset()" title="复位">
+            <span>🔄</span> 复位
+        </button>
+    </div>
     <div id="zoom-controls">
         <button class="zoom-btn" onclick="game.zoomDelta(-0.6)" title="放大视口">＋</button>
         <button class="zoom-btn" onclick="game.zoomDelta(0.6)" title="缩小视口">－</button>
@@ -341,8 +396,8 @@
         // 熏黑半透磨砂透光键帽纹理工厂
         const TextureFactory = {
             cache: {},
-            createKeycap(colorHex, isBlank = false) {
-                const k = colorHex + (isBlank ? '_blank' : '_lit');
+            createKeycap(colorHex, isBlank = false, numText = null, shapeIsUpright = true, faceIsInverted = false) {
+                const k = colorHex + (isBlank ? '_blank' : '_lit') + (numText ? `_${numText}_${shapeIsUpright}_${faceIsInverted}` : '');
                 if (this.cache[k]) return this.cache[k];
                 
                 const size = 512;
@@ -374,29 +429,50 @@
                     ctx.fillStyle = glowGrad;
                     ctx.fillRect(0, 0, size, size);
 
-                    // 键帽中心机械透光符印
+                    // 键帽中心字符或机械符印
                     ctx.save();
-                    ctx.translate(m, m + 6);
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 4;
                     ctx.shadowColor = `rgba(${rgbStr}, 1)`;
                     ctx.shadowBlur = 16;
                     
-                    ctx.beginPath();
-                    for (let a = 0; a < 3; a++) {
-                        const ang = -Math.PI / 2 + (a * 2 * Math.PI) / 3;
-                        const px = Math.cos(ang) * 48;
-                        const py = Math.sin(ang) * 48;
-                        if (a === 0) ctx.moveTo(px, py);
-                        else ctx.lineTo(px, py);
-                    }
-                    ctx.closePath();
-                    ctx.stroke();
+                    if (numText) {
+                        if (shapeIsUpright) {
+                            ctx.translate(m, m + 22);
+                        } else {
+                            ctx.translate(m, m - 16);
+                        }
+                        if (faceIsInverted) {
+                            ctx.rotate(Math.PI);
+                        }
+                        ctx.font = '900 120px -apple-system, BlinkMacSystemFont, Arial, sans-serif';
+                        ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+                        ctx.shadowBlur = 12;
+                        ctx.fillStyle = '#080a0e';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(numText, 0, 0);
+                        ctx.lineWidth = 4;
+                        ctx.strokeStyle = '#000000';
+                        ctx.strokeText(numText, 0, 0);
+                    } else {
+                        ctx.translate(m, m + 6);
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 4;
+                        ctx.beginPath();
+                        for (let a = 0; a < 3; a++) {
+                            const ang = -Math.PI / 2 + (a * 2 * Math.PI) / 3;
+                            const px = Math.cos(ang) * 48;
+                            const py = Math.sin(ang) * 48;
+                            if (a === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        }
+                        ctx.closePath();
+                        ctx.stroke();
 
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 10, 0, Math.PI * 2);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fill();
+                    }
                     ctx.restore();
                 }
 
@@ -469,8 +545,8 @@
                 const envTexture = new THREE.CanvasTexture(envCanvas);
                 envTexture.mapping = THREE.EquirectangularReflectionMapping;
 
-                const makeCapMat = (colHex, emissiveInt = 1.15, isBlank = false) => {
-                    const tex = TextureFactory.createKeycap(colHex, isBlank);
+                const makeCapMat = (colHex, emissiveInt = 1.15, isBlank = false, numText = null) => {
+                    const tex = TextureFactory.createKeycap(colHex, isBlank, numText);
                     return new THREE.MeshStandardMaterial({
                         map: tex,
                         emissiveMap: tex,
@@ -505,6 +581,8 @@
                 this.isFlat = false;
                 this.isLocked = false;
                 this.isShuffling = false;
+                this.isHardMode = false;
+                this.colorPalette = [0xff2a4b, 0xffb703, 0x06d6a0, 0x00b4d8];
 
                 window.addEventListener('resize', () => {
                     this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -529,10 +607,13 @@
 
             initPuzzleData() {
                 this.initialState = new Array(36);
-                for (let i = 0; i < 36; i++) {
-                    this.initialState[i] = Math.floor(i / 9);
-                }
-                this.initialState[2] = 4; // 第0面中心倒三角设为空格
+                // 华容道按当地几何拓扑顺序精确映射（几何生成顺序与行坐标解耦，直接映射目标数字）
+                // 正立大三角区域 (区0 红、区2 绿): 顶行[1] -> 中行从左到右[2,3,4] -> 底行从左到右[5,6,7,8,9]
+                this.layoutNormal = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+                // 倒立大三角区域 (区1 黄、区3 蓝): 顶行从左到右[9,8,7,6,5] -> 中行从左到右[4,3,2] -> 底行[1]
+                this.layoutInverted = [9, 8, 7, 6, 5, 4, 3, 2, 1];
+
+                this.buildGoalStates();
                 this.state = [...this.initialState];
 
                 this.adj3D = [];
@@ -549,10 +630,10 @@
                 ];
 
                 const faceIndices = [
-                    [0, 2, 1], // 面0 (红)
-                    [0, 1, 3], // 面1 (黄)
-                    [0, 3, 2], // 面2 (蓝)
-                    [1, 2, 3]  // 面3 (绿)
+                    [0, 2, 1], // 区0 (红 - 正立)
+                    [0, 1, 3], // 区1 (黄 - 倒立)
+                    [1, 2, 3], // 区2 (绿 - 正立，与区0同向)
+                    [0, 3, 2]  // 区3 (蓝 - 倒立，与区1同向)
                 ];
 
                 const L = v3D[0].distanceTo(v3D[1]);
@@ -568,10 +649,10 @@
                 const Q2 = to2D(2.5 * L, H);
 
                 const faceCorners2D = [
-                    [Q0, P0, P1],
-                    [Q0, P1, Q1],
-                    [Q2, Q1, P2],
-                    [P1, P2, Q1]
+                    [Q0, P0, P1], // 区0 (红): 正立
+                    [P1, Q1, Q0], // 区1 (黄): 倒立，从左到右顺序
+                    [Q1, P1, P2], // 区2 (绿): 正立，与区0完全一致
+                    [P2, Q2, Q1]  // 区3 (蓝): 倒立，与区1完全一致
                 ];
 
                 this.buttons = [];
@@ -737,6 +818,10 @@
                 this.triangleVerts3D.push([vA3, vB3, vC3]);
                 this.triangleVerts2D.push([vA2, vB2, vC2]);
 
+                // 根据UV和所在面判断物理结构朝向与渲染翻转
+                const shapeIsUpright = (uvA.y === 1.0);
+                const faceIsInverted = (faceId === 1 || faceId === 3);
+
                 const shrink = (pts, f) => {
                     let c = new THREE.Vector3().addVectors(pts[0], pts[1]).add(pts[2]).divideScalar(3);
                     return [
@@ -831,6 +916,8 @@
 
                 buttonMesh.userData = {
                     index: faceId * 9 + localIdx,
+                    shapeIsUpright: shapeIsUpright,
+                    faceIsInverted: faceIsInverted,
                     normal3D: N3.clone(),
                     normal2D: N2.clone(),
                     normal: N3.clone(),
@@ -884,6 +971,25 @@
                             this.adj2D[i].push(j);
                             this.adj2D[j].push(i);
                         }
+                    }
+                }
+            }
+
+            buildGoalStates() {
+                for (let i = 0; i < 36; i++) {
+                    const face = Math.floor(i / 9);
+                    const local = i % 9;
+                    const isAreaInverted = (face === 1 || face === 3);
+                    const num = isAreaInverted ? this.layoutInverted[local] : this.layoutNormal[local];
+                    if (this.isHardMode) {
+                        this.initialState[i] = {
+                            face: face,
+                            num: num,
+                            id: face * 9 + local,
+                            blank: (face === 0 && local === 2)
+                        };
+                    } else {
+                        this.initialState[i] = (face === 0 && local === 2) ? 4 : face;
                     }
                 }
             }
@@ -958,7 +1064,7 @@
                     isDragging = false;
                     startPos = { x: e.clientX, y: e.clientY };
 
-                    if (e.target.closest('button') || e.target.id === 'exit-lock-btn' || e.target.closest('#zoom-controls')) return;
+                    if (e.target.closest('button') || e.target.id === 'exit-lock-btn' || e.target.closest('#zoom-controls') || e.target.closest('#immersive-left-controls')) return;
 
                     // 平铺或锁定模式下：直接在 pointerdown 零延迟瞬发，彻底消除移动端等待抬手与双击防抖延迟
                     if (this.isFlat || this.isLocked) {
@@ -973,7 +1079,7 @@
                 });
 
                 window.addEventListener('pointerup', e => {
-                    if (this.isShuffling || e.target.closest('button') || e.target.id === 'exit-lock-btn' || e.target.closest('#zoom-controls')) return;
+                    if (this.isShuffling || e.target.closest('button') || e.target.id === 'exit-lock-btn' || e.target.closest('#zoom-controls') || e.target.closest('#immersive-left-controls')) return;
                     if (this.isFlat || this.isLocked) return; // 平铺/锁定模式已在 pointerdown 瞬发完毕
                     if (isDragging) return;
 
@@ -994,15 +1100,23 @@
                 this.camPos2D.z = fitZ;
             }
 
+            getEmptyIndex() {
+                if (this.isHardMode) {
+                    return this.state.findIndex(item => item.blank);
+                }
+                return this.state.indexOf(4);
+            }
+
             trySwap(hitButton) {
                 const clickedIndex = hitButton.userData.index;
-                const emptyIndex = this.state.indexOf(4);
+                const emptyIndex = this.getEmptyIndex();
 
                 if (this.currentAdj[emptyIndex].includes(clickedIndex)) {
                     MechanicalAudio.playSwitch('thock');
                     // 零延迟瞬间执行逻辑移动与色块渲染，不等待下压动画（音游级即触即达）
+                    const temp = this.state[emptyIndex];
                     this.state[emptyIndex] = this.state[clickedIndex];
-                    this.state[clickedIndex] = 4;
+                    this.state[clickedIndex] = temp;
                     this.updateVisuals();
                     this.checkWin();
 
@@ -1017,14 +1131,52 @@
 
             updateVisuals() {
                 for (let i = 0; i < 36; i++) {
-                    let colorId = this.state[i];
-                    let mat = this.materials.white;
-                    if (colorId === 0) mat = this.materials.red;
-                    else if (colorId === 1) mat = this.materials.yellow;
-                    else if (colorId === 2) mat = this.materials.blue;
-                    else if (colorId === 3) mat = this.materials.green;
-                    this.buttons[i].material = mat;
+                    if (this.isHardMode) {
+                        const item = this.state[i];
+                        if (item.blank) {
+                            this.buttons[i].material = this.materials.white;
+                        } else {
+                            const colHex = this.colorPalette[item.face];
+                            const shapeIsUpright = this.buttons[i].userData.shapeIsUpright;
+                            const faceIsInverted = this.buttons[i].userData.faceIsInverted;
+                            const tex = TextureFactory.createKeycap(colHex, false, String(item.num), shapeIsUpright, faceIsInverted);
+                            this.buttons[i].material = new THREE.MeshStandardMaterial({
+                                map: tex,
+                                emissiveMap: tex,
+                                emissive: colHex,
+                                emissiveIntensity: 1.25,
+                                color: 0x11141a,
+                                roughness: 0.36,
+                                metalness: 0.22,
+                                envMap: this.materials.base.envMap,
+                                envMapIntensity: 0.85
+                            });
+                        }
+                    } else {
+                        let colorId = this.state[i];
+                        let mat = this.materials.white;
+                        if (colorId === 0) mat = this.materials.red;
+                        else if (colorId === 1) mat = this.materials.yellow;
+                        else if (colorId === 2) mat = this.materials.green;
+                        else if (colorId === 3) mat = this.materials.blue;
+                        this.buttons[i].material = mat;
+                    }
                 }
+            }
+
+            toggleHardMode() {
+                this.isHardMode = !this.isHardMode;
+                const diffBtn = document.getElementById('diff-btn');
+                const diffText = document.getElementById('diff-text');
+                if (this.isHardMode) {
+                    diffBtn.classList.add('active');
+                    diffText.innerText = "基础颜色";
+                } else {
+                    diffBtn.classList.remove('active');
+                    diffText.innerText = "加大难度";
+                }
+                this.buildGoalStates();
+                this.reset();
             }
 
             toggleMorph() {
@@ -1062,6 +1214,7 @@
                     uiPanel.classList.add('immersed');
                     controls.classList.add('immersed');
                     exitBtn.style.display = 'flex';
+                    document.getElementById('immersive-left-controls').style.display = 'flex';
                     document.getElementById('zoom-controls').style.display = 'flex';
 
                     // 禁用旋转与平移交互
@@ -1085,6 +1238,7 @@
                     uiPanel.classList.remove('immersed');
                     controls.classList.remove('immersed');
                     exitBtn.style.display = 'none';
+                    document.getElementById('immersive-left-controls').style.display = 'none';
                     document.getElementById('zoom-controls').style.display = 'none';
 
                     this.controls.enabled = true;
@@ -1107,13 +1261,14 @@
                 const activeAdj = this.currentAdj;
 
                 for (let i = 0; i < totalSteps; i++) {
-                    let emptyIdx = this.state.indexOf(4);
+                    let emptyIdx = this.getEmptyIndex();
                     let neighbors = activeAdj[emptyIdx].filter(n => n !== lastEmpty);
                     if (neighbors.length === 0) neighbors = activeAdj[emptyIdx];
                     let randomNext = neighbors[Math.floor(Math.random() * neighbors.length)];
 
+                    const temp = this.state[emptyIdx];
                     this.state[emptyIdx] = this.state[randomNext];
-                    this.state[randomNext] = 4;
+                    this.state[randomNext] = temp;
                     lastEmpty = emptyIdx;
                 }
 
@@ -1123,25 +1278,34 @@
             }
 
             reset() {
-                this.state = [...this.initialState];
+                this.state = this.initialState.map(item => (typeof item === 'object' ? { ...item } : item));
                 this.updateVisuals();
                 document.getElementById('victory-overlay').classList.remove('show');
-                if (this.targetMorph === 0.0) {
-                    this.camera.position.copy(this.camPos3D);
-                    this.controls.reset();
-                } else {
-                    this.camPos2D.z = this.getFlatCameraDistance();
-                    this.camera.position.copy(this.camPos2D);
-                    this.controls.reset();
+                if (!this.isLocked) {
+                    if (this.targetMorph === 0.0) {
+                        this.camera.position.copy(this.camPos3D);
+                        this.controls.reset();
+                    } else {
+                        this.camPos2D.z = this.getFlatCameraDistance();
+                        this.camera.position.copy(this.camPos2D);
+                        this.controls.reset();
+                    }
                 }
             }
 
             checkWin() {
                 let isWin = true;
                 for (let i = 0; i < 36; i++) {
-                    if (this.state[i] !== this.initialState[i]) {
-                        isWin = false;
-                        break;
+                    if (this.isHardMode) {
+                        if (this.state[i].id !== this.initialState[i].id) {
+                            isWin = false;
+                            break;
+                        }
+                    } else {
+                        if (this.state[i] !== this.initialState[i]) {
+                            isWin = false;
+                            break;
+                        }
                     }
                 }
                 if (isWin) {
